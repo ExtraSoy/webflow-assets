@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sojasaucen-Flasche</title>
+<style>
+  html, body {
+    margin: 0;
+    height: 100%;
+    background: transparent;
+    overflow: hidden;
+  }
+  #stage {
+    height: 100%;
+    display: grid;
+    place-items: center;
+  }
+  model-viewer {
+    width: 88%;
+    height: 88%;
+    background: transparent;
+    --poster-color: transparent;
+    transform-origin: 50% 50%;
+    cursor: pointer;
+  }
+</style>
+<script type="module" src="https://unpkg.com/@google/model-viewer@3.5.0/dist/model-viewer.min.js"></script>
+</head>
+<body>
+<div id="stage">
+  <model-viewer
+    id="mv"
+    src="https://raw.githubusercontent.com/ExtraSoy/webflow-assets/main/sojasaucen-flasche_V7.glb"
+    alt="Sojasaucen-Spender, 150 ml"
+    auto-rotate
+    auto-rotate-delay="0"
+    rotation-per-second="50deg"
+    camera-orbit="25deg 78deg 0.32m"
+    min-camera-orbit="auto 20deg auto"
+    max-camera-orbit="auto 100deg auto"
+    camera-controls
+    disable-zoom
+    touch-action="pan-y"
+    interaction-prompt="none"
+    shadow-intensity="0"
+    shadow-softness="0.85"
+    exposure="1.1"
+    environment-image="neutral">
+    <div slot="progress-bar"></div>
+  </model-viewer>
+</div>
+
+<script>
+(function () {
+  var mv = document.getElementById('mv');
+  var BASE = 'rotate(-32deg)';
+  var EASE = 'transform .45s cubic-bezier(.34, 1.56, .64, 1)';
+  mv.style.transition = EASE;
+  mv.style.transform = BASE + ' scale(1)';
+
+  function grow() { mv.style.transform = BASE + ' scale(1.1)'; }
+  function shrink() { mv.style.transform = BASE + ' scale(1)'; }
+
+  // ganze Fläche als Hover-Ziel: model-viewer schluckt Events im Shadow-DOM
+  document.getElementById('stage').addEventListener('mouseenter', grow);
+  document.getElementById('stage').addEventListener('mouseleave', shrink);
+  mv.addEventListener('mouseenter', grow);
+  mv.addEventListener('mouseleave', shrink);
+})();
+</script>
+</body>
+</html>
