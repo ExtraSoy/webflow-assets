@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<!--
+  Sojasaucen-Flasche - fertig fuer GitHub Pages
+
+  Ablegen als:  sojasauce-flasche-3d-modell.html   (Repo extrasoy.github.io/webflow-assets)
+
+  Einbetten in Webflow (Embed-Element):
+    <iframe src="https://extrasoy.github.io/webflow-assets/sojasauce-flasche-3d-modell.html"
+            style="width:100%;aspect-ratio:1/1;border:0;display:block"
+            loading="lazy" title="Interaktives 3D-Modell einer Sojasaucen-Flasche"></iframe>
+
+  Interaktion:  Hover richtet die Flasche auf und stoppt die Eigendrehung.
+                Ziehen dreht (links/rechts) und kippt (hoch/runter).
+                Maus weg -> alles faehrt in die Ausgangslage zurueck.
+
+  Hintergrundfarbe:  an ZWEI Stellen aendern, damit das Glas den richtigen
+                     Ton bricht - im <style> unten und bei const BG.
+-->
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sojasauce Flasche 3D-Modell - interaktiv drehen und neigen</title>
+<meta name="description" content="Interaktives 3D-Modell einer Sojasaucen-Flasche: mit der Maus drehen und neigen, der Fuellstand der Sojasauce bleibt dabei waagerecht. Laeuft direkt im Browser, ohne Plugin.">
+<meta name="robots" content="index, follow">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Sojasauce Flasche 3D-Modell - interaktiv drehen und neigen">
+<meta property="og:description" content="Interaktives 3D-Modell einer Sojasaucen-Flasche mit realistischem Glas und waagerechtem Fuellstand.">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "3DModel",
+  "name": "Sojasauce Flasche 3D-Modell",
+  "description": "Interaktives 3D-Modell einer Sojasaucen-Flasche aus Glas. Die Flasche laesst sich mit der Maus drehen und neigen; der Fuellstand der Sojasauce bleibt dabei waagerecht.",
+  "inLanguage": "de",
+  "encodingFormat": "text/html",
+  "isAccessibleForFree": true,
+  "keywords": "Sojasauce, Sojasaucen-Flasche, 3D-Modell, interaktiv, WebGL, Glasflasche"
+}
+</script>
+<style>
+  html, body { margin: 0; height: 100%; background: #16101d; overflow: hidden; }
+  #stage { height: 100%; display: grid; place-items: center; }
+  #tilt {
+    width: 92%; height: 92%;
+    transform-origin: 50% 50%;
+    transform: scale(1);
+    transition: transform .45s cubic-bezier(.34, 1.56, .64, 1);
+    cursor: grab;
+    touch-action: none;
+  }
+  #tilt.dragging { cursor: grabbing; }
+  canvas { display: block; width: 100%; height: 100%; }
+</style>
+<script type="importmap">
+{ "imports": { "three": "https://unpkg.com/three@0.161.0/build/three.module.js" } }
+</script>
+</head>
+<body>
+<h1 style="position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0">Sojasauce Flasche als interaktives 3D-Modell</h1>
+<div id="stage" role="img" aria-label="Sojasaucen-Flasche aus Glas, drehbar und neigbar"><div id="tilt"></div></div>
+
+<script type="module">
+import * as THREE from 'three';
+
+/* Hintergrund der Seite. Das Glas bricht diesen Ton, damit die Flasche
+   auf der Website wirklich durchsichtig wirkt statt weiss aufzuleuchten. */
+const BG = '#16101d';
+
+const LABEL_VB = [0,0,296,497];
+const LABEL_PATHS = [{"d":"M205.969 0.265625L213.337 0.265625L215.146 13.6986H215.199L217.088 0.265625L224.456 0.265625L220.971 14.7094C220.572 16.465 219.854 17.7152 218.763 18.5398V32.1856H211.661V18.593C210.491 17.795 209.773 16.4916 209.374 14.7094L205.969 0.265625Z","fill":"#FFE6CA"},{"d":"M184.726 24.9242L184.194 7.5012C184.034 2.3674 187.04 0 193.583 0C200.047 0 203.106 2.4206 202.947 7.5278L202.441 24.9242C202.282 30.0846 199.542 32.452 193.61 32.452C187.625 32.452 184.885 30.1378 184.726 24.9242ZM191.562 7.3948L192.094 25.27C192.147 26.866 192.652 27.7172 193.637 27.7172C194.541 27.7172 195.073 26.866 195.126 25.27L195.605 7.3948C195.632 5.719 194.887 4.7348 193.583 4.7348C192.28 4.7348 191.509 5.719 191.562 7.3948Z","fill":"#FFE6CA"},{"d":"M162.032 7.7672V7.5544C162.032 2.66 165.33 0 171.235 0C177.14 0 179.987 2.7132 179.987 7.5278V9.842L173.124 9.842V7.2884C173.124 5.5062 172.485 4.6284 171.129 4.6284C169.799 4.6284 169.134 5.4796 169.134 7.182V7.4746C169.134 12.1828 180.253 13.3266 180.253 22.3174V23.3282C180.253 29.393 176.848 32.452 170.756 32.452C164.718 32.452 161.766 29.7388 161.766 24.9242V21.546H168.868V25.0572C168.868 26.8394 169.533 27.6906 170.889 27.6906C172.246 27.6906 172.911 26.5468 172.911 24.2592V23.5676C172.911 17.157 162.032 16.8378 162.032 7.7672Z","fill":"#FFE6CA"},{"d":"M125.852 6.8628C125.852 1.8886 127.315 0 131.118 0C134.896 0 136.385 1.9418 136.385 6.8628C136.385 11.7572 134.922 13.6458 131.118 13.6458C127.288 13.6458 125.852 11.8104 125.852 6.8628ZM128.272 32.186L142.317 0.266L146.227 0.266L132.209 32.186H128.272ZM129.522 5.852V7.7938C129.522 9.4962 130.028 10.2676 131.118 10.2676C132.209 10.2676 132.714 9.4962 132.714 7.7938V5.852C132.714 4.1496 132.209 3.3782 131.118 3.3782C130.028 3.3782 129.522 4.1496 129.522 5.852ZM138.088 25.669C138.088 20.7214 139.551 18.8062 143.354 18.8062C147.158 18.8062 148.648 20.748 148.648 25.669C148.648 30.5634 147.185 32.4786 143.354 32.4786C139.524 32.4786 138.088 30.6166 138.088 25.669ZM141.785 24.738V26.6798C141.785 28.3822 142.264 29.1536 143.381 29.1536C144.472 29.1536 144.977 28.3822 144.977 26.6798V24.738C144.977 23.0356 144.472 22.2642 143.381 22.2642C142.264 22.2642 141.785 23.0356 141.785 24.738Z","fill":"#FFE6CA"},{"d":"M104.43 24.9242V7.5012C104.43 2.5802 107.382 0 113.021 0C118.661 0 121.587 2.5802 121.587 7.5278V24.9242C121.587 29.8718 118.661 32.452 113.021 32.452C107.382 32.452 104.43 29.8718 104.43 24.9242ZM111.266 7.182V25.27C111.266 27.0522 111.851 27.93 113.021 27.93C114.192 27.93 114.777 27.0522 114.777 25.27V7.182C114.777 5.3732 114.218 4.522 113.021 4.522C111.824 4.522 111.266 5.3732 111.266 7.182Z","fill":"#FFE6CA"},{"d":"M83.2969 24.9242V7.5012C83.2969 2.5802 86.2495 0 91.8887 0C97.5279 0 100.454 2.5802 100.454 7.5278V24.9242C100.454 29.8718 97.5279 32.452 91.8887 32.452C86.2495 32.452 83.2969 29.8718 83.2969 24.9242ZM90.1331 7.182V25.27C90.1331 27.0522 90.7183 27.93 91.8887 27.93C93.0591 27.93 93.6443 27.0522 93.6443 25.27V7.182C93.6443 5.3732 93.0857 4.522 91.8887 4.522C90.6917 4.522 90.1331 5.3732 90.1331 7.182Z","fill":"#FFE6CA"},{"d":"M73.1159 0.265625C78.1699 0.265625 78.9679 1.03703 78.9679 5.61222V32.1856H72.4243V5.05362H72.3711L71.1741 7.71363H70.6953V0.265625L73.1159 0.265625Z","fill":"#FFE6CA"},{"d":"M167.734 249.455C167.734 225.064 174.908 215.803 193.561 215.803C212.082 215.803 219.387 225.324 219.387 249.455C219.387 273.455 212.213 282.716 193.561 282.716C174.778 282.716 167.734 273.716 167.734 249.455ZM179.604 373.629L248.474 217.107H267.648L198.908 373.629H179.604ZM185.734 244.498V254.02C185.734 262.368 188.213 266.151 193.561 266.151C198.908 266.151 201.387 262.368 201.387 254.02V244.498C201.387 236.151 198.908 232.368 193.561 232.368C188.213 232.368 185.734 236.151 185.734 244.498ZM227.734 341.673C227.734 317.412 234.908 308.02 253.561 308.02C272.213 308.02 279.517 317.542 279.517 341.673C279.517 365.673 272.343 375.064 253.561 375.064C234.778 375.064 227.734 365.933 227.734 341.673ZM245.865 337.107V346.629C245.865 354.977 248.213 358.759 253.691 358.759C259.039 358.759 261.517 354.977 261.517 346.629V337.107C261.517 328.759 259.039 324.977 253.691 324.977C248.213 324.977 245.865 328.759 245.865 337.107Z","fill":"#FFE6CA"},{"d":"M75.7031 338.02V252.585C75.7031 228.455 90.1814 215.803 117.834 215.803C145.486 215.803 159.834 228.455 159.834 252.716V338.02C159.834 362.281 145.486 374.933 117.834 374.933C90.1814 374.933 75.7031 362.281 75.7031 338.02ZM109.225 251.02V339.716C109.225 348.455 112.094 352.759 117.834 352.759C123.573 352.759 126.442 348.455 126.442 339.716V251.02C126.442 242.151 123.703 237.977 117.834 237.977C111.964 237.977 109.225 242.151 109.225 251.02Z","fill":"#FFE6CA"},{"d":"M38.8852 217.102C63.6679 217.102 67.5809 220.884 67.5809 243.319V373.624H35.4939L35.4939 240.58H35.233L29.3635 253.623H27.0156L27.0156 217.102H38.8852Z","fill":"#FFE6CA"},{"d":"M134.798 162.12L161.925 162.12L168.746 133.896L151.498 117.98L151.498 134.837C152.23 135.359 152.805 136.013 153.223 136.797C153.641 137.581 153.85 138.443 153.85 139.384C153.85 140.9 153.314 142.194 152.241 143.266C151.169 144.339 149.876 144.874 148.362 144.872C146.848 144.87 145.555 144.334 144.483 143.263C143.41 142.193 142.874 140.9 142.874 139.384C142.874 138.443 143.083 137.581 143.501 136.797C143.919 136.013 144.494 135.359 145.226 134.837L145.226 117.98L127.978 133.896L134.798 162.12ZM123.273 177.801L126.41 168.393L170.314 168.393L173.45 177.801L123.273 177.801Z","fill":"#FFE6CA"},{"d":"M95 142.199V145.049L0 145.049L0 142.199L95 142.199Z","fill":"#FFE6CA"},{"d":"M295.164 142.199L295.164 145.049L200.164 145.049L200.164 142.199L295.164 142.199Z","fill":"#FFE6CA"},{"d":"M95 152.199V155.049L0 155.049L0 152.199L95 152.199Z","fill":"#FFE6CA"},{"d":"M295.164 152.199L295.164 155.049L200.164 155.049L200.164 152.199L295.164 152.199Z","fill":"#FFE6CA"},{"d":"M294.828 413.062V415.912H0.328125V413.062H294.828Z","fill":"#FFE6CA"},{"d":"M47.3242 464.143H36.1143V467.315H46.5449V473.566H36.1143V476.721H47.4951V484.017H28.1719V456.809H47.3242V464.143ZM90.5234 464.373L95.3779 456.809H103.795L95.2832 469.799L104.992 484.017H95.7197L90.3154 475.672L84.8906 484.017H76.4922L85.6279 470.125L76.7393 456.809H85.8018L90.5234 464.373ZM156.412 464.275H149.307V484.017H141.174V464.275H133.992V456.809H156.412V464.275ZM197.403 456.809C200.329 456.809 202.78 457.645 204.756 459.316C206.745 460.976 207.739 463.237 207.739 466.1C207.739 468.633 206.821 470.735 204.984 472.407C204.385 472.952 203.728 473.406 203.016 473.771L210.171 484.017H200.861L195.012 474.896H193.565V484.017H185.414V456.809H197.403ZM266.988 484.017H258.21L257.013 480.235H248.85L247.646 484.017H239.172L249.622 456.809H256.519L266.988 484.017ZM251.997 470.355L250.538 474.935H255.334L253.896 470.394L253.004 467.259H252.871L251.997 470.355ZM193.565 469.539H196.529C197.391 469.539 198.119 469.259 198.714 468.702C199.322 468.145 199.626 467.423 199.626 466.536V466.518C199.626 465.732 199.341 465.061 198.771 464.504C198.201 463.947 197.491 463.668 196.643 463.668H193.565V469.539Z","fill":"#FFE6CA"}];
+
+const mm = (v) => v / 1000;
+const V2 = (r, h) => new THREE.Vector2(mm(r), mm(h));
+
+/* ---------- Silhouette ---------- */
+const outerCtl = [
+  [31.0, 4], [32.6, 13], [33.1, 22], [32.7, 31], [31.7, 40],
+  [30.2, 50], [27.9, 60], [24.8, 70], [21.2, 79], [17.9, 87],
+  [15.2, 93], [13.0, 98], [11.6, 103], [10.9, 108],
+  [10.7, 113], [10.8, 120], [10.9, 126], [11.0, 130.5],
+];
+const outer = new THREE.SplineCurve(outerCtl.map(([r, h]) => new THREE.Vector2(r, h)))
+  .getPoints(170).map((p) => [p.x, p.y]);
+
+const at = (h) => {
+  if (h <= outer[0][1]) return outer[0][0];
+  if (h >= outer[outer.length - 1][1]) return outer[outer.length - 1][0];
+  for (let i = 1; i < outer.length; i++) {
+    if (outer[i][1] >= h) {
+      const [r0, h0] = outer[i - 1], [r1, h1] = outer[i];
+      return r0 + (r1 - r0) * ((h - h0) / (h1 - h0));
+    }
+  }
+  return outer[outer.length - 1][0];
+};
+const wallAt = (h) => (h >= 100 ? 3.0 : h <= 20 ? 4.4 : 4.4 - ((h - 20) / 80) * 1.4);
+const innerR = (h) => Math.max(0.4, at(h) - wallAt(h));
+
+const FILL = 99;      // Fuellhoehe
+const FLOOR = 3.4;    // Innenboden
+
+/* ---------- Glas: eine geschlossene Aussenhaut ----------
+   Bewusst KEINE modellierte Innenwand. Jede zusaetzliche brechende Flaeche
+   traegt in three.js noch einmal den Hintergrund bei; vier gestapelte Waende
+   summieren sich zu einem hellen, flachen Schleier statt durchsichtig zu
+   wirken. Das Volumen der Wand uebernimmt stattdessen `thickness`.      */
+const glassProfile = [V2(0, 0)];
+for (const [r, h] of outer) glassProfile.push(V2(r, h));
+glassProfile.push(V2(11.5, 131.2), V2(11.55, 131.9), V2(11.2, 132.35), V2(10.6, 132.5), V2(0, 132.5));
+
+const glassMat = new THREE.MeshPhysicalMaterial({
+  name: 'glass',
+  color: 0xffffff,
+  metalness: 0,
+  roughness: 0.105,
+  transmission: 1,
+  ior: 1.52,
+  thickness: mm(3.2),
+  /* Absorption muss im Verhaeltnis zur Wandstaerke stehen. Mit einer
+     Weglaenge von mehreren Zentimetern passiert bei 3 mm Glas praktisch
+     nichts - deshalb liegt sie hier in derselben Groessenordnung.      */
+  attenuationColor: new THREE.Color(0xb0b0ad),
+  attenuationDistance: mm(2.4),
+  specularIntensity: 0.5,
+  envMapIntensity: 0.5,
+  side: THREE.FrontSide,
+});
+const bottle = new THREE.Mesh(new THREE.LatheGeometry(glassProfile, 128), glassMat);
+bottle.name = 'bottle_glass';
+bottle.renderOrder = 3;
+
+/* ---------- Sauce ----------
+   Das Volumen fuellt den Innenraum bis weit ueber die Fuellhoehe hinaus und
+   wird von einer WAAGERECHTEN Ebene abgeschnitten. Dadurch bleibt der
+   Spiegel immer horizontal, egal wie stark die Flasche geneigt ist.     */
+const TOP = 128;
+const sauceProfile = [V2(0, FLOOR)];
+for (const [r, h] of outer) if (h > FLOOR && h <= TOP) sauceProfile.push(V2(innerR(h), h));
+sauceProfile.push(V2(innerR(TOP), TOP), V2(0, TOP));
+
+const clipPlane = new THREE.Plane(new THREE.Vector3(0, -1, 0), mm(FILL));
+
+const sauceMat = new THREE.MeshPhysicalMaterial({
+  name: 'soy_sauce',
+  color: 0x5c2810,
+  roughness: 0.32,
+  metalness: 0,
+  clearcoat: 0.25,
+  clearcoatRoughness: 0.35,
+  envMapIntensity: 0.7,
+  clippingPlanes: [clipPlane],
+});
+const sauce = new THREE.Mesh(new THREE.LatheGeometry(sauceProfile, 128), sauceMat);
+sauce.name = 'soy_sauce';
+
+/* ---------- Deckel ---------- */
+const capMat = new THREE.MeshStandardMaterial({
+  name: 'cap_violet', color: 0x6b4a93, roughness: 0.32, metalness: 0, envMapIntensity: 1,
+});
+const capProfile = [
+  V2(0, 137.0), V2(9.2, 137.0), V2(10.8, 136.4), V2(11.6, 135.2),
+  V2(11.6, 125.2), V2(11.8, 124.4),
+  V2(13.1, 124.1), V2(13.15, 125.4), V2(12.8, 126.8),
+  V2(13.7, 129.6), V2(15.5, 133.2), V2(17.8, 136.5), V2(19.6, 138.8),
+  V2(20.5, 139.7), V2(20.5, 140.3), V2(19.6, 140.8),
+  V2(16.4, 141.0), V2(8.0, 140.9), V2(0, 140.8),
+];
+const cap = new THREE.Mesh(new THREE.LatheGeometry(capProfile, 96), capMat);
+cap.name = 'cap';
+
+const boreMat = new THREE.MeshStandardMaterial({ name: 'spout_bore', color: 0x1a1220, roughness: 0.45 });
+const spouts = new THREE.Group();
+[0, Math.PI].forEach((a) => {
+  const x = Math.cos(a) * mm(11.5), z = Math.sin(a) * mm(11.5);
+  const lip = new THREE.Mesh(new THREE.TorusGeometry(mm(2.9), mm(0.7), 12, 32), capMat);
+  lip.rotation.x = Math.PI / 2;
+  lip.position.set(x, mm(141.0), z);
+  const bore = new THREE.Mesh(new THREE.CircleGeometry(mm(2.9), 32), boreMat);
+  bore.rotation.x = -Math.PI / 2;
+  bore.position.set(x, mm(140.6), z);
+  spouts.add(lip, bore);
+});
+
+/* ---------- Etikett ---------- */
+function labelTexture(renderer) {
+  const [vx, vy, vw, vh] = LABEL_VB;
+  const H = 1600, s = H / vh, W = Math.round(vw * s);
+  const c = document.createElement('canvas');
+  c.width = W; c.height = H;
+  const g = c.getContext('2d');
+  g.setTransform(s, 0, 0, s, -vx * s, -vy * s);
+  for (const p of LABEL_PATHS) { g.fillStyle = p.fill; g.fill(new Path2D(p.d)); }
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
+  return tex;
+}
+
+function decalGeometry(h0, h1, halfWidth, lift = 1.1, segX = 72, segY = 90) {
+  const pos = [], uvs = [], idx = [];
+  for (let j = 0; j <= segY; j++) {
+    const t = j / segY, h = h0 + (h1 - h0) * t, r = at(h) + lift, half = halfWidth / r;
+    for (let i = 0; i <= segX; i++) {
+      const u = i / segX, a = -half + 2 * half * u;
+      pos.push(Math.sin(a) * mm(r), mm(h), Math.cos(a) * mm(r));
+      uvs.push(u, t);
+    }
+  }
+  const row = segX + 1;
+  for (let j = 0; j < segY; j++) for (let i = 0; i < segX; i++) {
+    const v00 = j * row + i, v10 = v00 + 1, v01 = v00 + row, v11 = v01 + 1;
+    idx.push(v00, v10, v11, v00, v11, v01);
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  geo.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+  geo.setIndex(idx);
+  geo.computeVertexNormals();
+  return geo;
+}
+
+/* ---------- Szene ---------- */
+const host = document.getElementById('tilt');
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.9;
+renderer.setClearColor(new THREE.Color(BG), 1);
+renderer.localClippingEnabled = true;
+host.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(26, 1, 0.01, 10);
+camera.position.set(0, 0.072, 0.42);
+camera.lookAt(0, 0.070, 0);
+
+/* dunkles Studio: kompakte Lichter, dunkler Grund. Damit bleibt das, was
+   man durch das Glas sieht, dunkel wie die Seite dahinter.            */
+function studio() {
+  const W = 1024, H = 512;
+  const c = document.createElement('canvas');
+  c.width = W; c.height = H;
+  const x = c.getContext('2d');
+  const g = x.createLinearGradient(0, 0, 0, H);
+  g.addColorStop(0, '#2a2a27'); g.addColorStop(0.45, '#1b1b19');
+  g.addColorStop(0.55, '#151514'); g.addColorStop(1, '#0a0a09');
+  x.fillStyle = g; x.fillRect(0, 0, W, H);
+  const soft = (cx, cy, rx, ry, peak, mid) => {
+    const r = x.createRadialGradient(0, 0, 0, 0, 0, 1);
+    r.addColorStop(0, 'rgba(255,255,255,' + peak + ')');
+    r.addColorStop(mid, 'rgba(255,255,255,' + peak * 0.28 + ')');
+    r.addColorStop(1, 'rgba(255,255,255,0)');
+    const blob = (p) => { x.save(); x.translate(p, cy); x.scale(rx, ry); x.fillStyle = r;
+      x.beginPath(); x.arc(0, 0, 1, 0, Math.PI * 2); x.fill(); x.restore(); };
+    blob(cx); if (cx - rx < 0) blob(cx + W); if (cx + rx > W) blob(cx - W);
+  };
+  x.globalCompositeOperation = 'lighter';
+  soft(W * 0.26, H * 0.20, W * 0.20, H * 0.24, 0.40, 0.45);
+  soft(W * 0.74, H * 0.30, W * 0.15, H * 0.18, 0.24, 0.45);
+  soft(W * 0.02, H * 0.44, W * 0.10, H * 0.34, 0.28, 0.4);
+  soft(W * 0.54, H * 0.44, W * 0.10, H * 0.34, 0.26, 0.4);
+  x.globalCompositeOperation = 'source-over';
+  const tex = new THREE.CanvasTexture(c);
+  tex.mapping = THREE.EquirectangularReflectionMapping;
+  tex.colorSpace = THREE.SRGBColorSpace;
+  const pmrem = new THREE.PMREMGenerator(renderer);
+  scene.environment = pmrem.fromEquirectangular(tex).texture;
+  pmrem.dispose(); tex.dispose();
+}
+studio();
+
+const key = new THREE.DirectionalLight(0xfff4e6, 1.0);
+key.position.set(-0.22, 0.36, 0.28);
+const rim = new THREE.DirectionalLight(0xdfe8ff, 0.7);
+rim.position.set(0.28, 0.12, -0.34);
+scene.add(key, rim, new THREE.AmbientLight(0xffffff, 0.12));
+
+const labelMat = new THREE.MeshStandardMaterial({
+  name: 'label_cream',
+  color: 0xffffff,
+  map: labelTexture(renderer),
+  transparent: true,
+  roughness: 0.85,
+  metalness: 0,
+  envMapIntensity: 0.2,
+});
+const LABEL_BOTTOM = 24, LABEL_TOP = 75;
+const LABEL_W = (LABEL_TOP - LABEL_BOTTOM) * (LABEL_VB[2] / LABEL_VB[3]);
+const labels = new THREE.Group();
+labels.rotation.y = Math.atan2(1, 1.25);
+['front', 'back'].forEach((side, i) => {
+  const m = new THREE.Mesh(decalGeometry(LABEL_BOTTOM, LABEL_TOP, LABEL_W / 2), labelMat);
+  m.name = 'label_' + side;
+  m.rotation.y = i * Math.PI;
+  m.renderOrder = 4;
+  labels.add(m);
+});
+
+/* ---------- Spiegel der Fluessigkeit ----------
+   Der Schnitt einer waagerechten Ebene durch die geneigte Flasche ist eine
+   Ellipse, deren Rand der Flaschenkontur folgt. Fuer jeden Winkel wird die
+   Hoehe gesucht, an der die Innenwand die Ebene trifft.                  */
+const SEG = 160;
+const surfGeo = new THREE.BufferGeometry();
+const surfPos = new Float32Array((SEG + 2) * 3);
+surfGeo.setAttribute('position', new THREE.BufferAttribute(surfPos, 3));
+const surfIdx = [];
+for (let i = 0; i < SEG; i++) surfIdx.push(0, i + 1, i + 2);
+surfGeo.setIndex(surfIdx);
+
+const surfMat = new THREE.MeshPhysicalMaterial({
+  name: 'sauce_surface',
+  color: 0x5c2810,
+  roughness: 0.18,
+  metalness: 0,
+  clearcoat: 0.5,
+  clearcoatRoughness: 0.14,
+  envMapIntensity: 0.5,
+  side: THREE.DoubleSide,
+});
+const surface = new THREE.Mesh(surfGeo, surfMat);
+
+/* Die Flasche kippt um ihre Mitte, nicht um den Boden - sonst wandert sie
+   beim Neigen aus dem Bild. */
+const PIVOT = 70;
+
+function updateSurface(T) {
+  const tan = Math.tan(T);
+  const Sw = PIVOT + Math.cos(T) * (FILL - PIVOT);   // Spiegelhoehe in Weltkoordinaten (mm)
+  surfPos[0] = 0; surfPos[1] = mm(FILL); surfPos[2] = 0;
+  for (let i = 0; i <= SEG; i++) {
+    const a = (i / SEG) * Math.PI * 2, ca = Math.cos(a), sa = Math.sin(a);
+    let hm = FILL;
+    for (let k = 0; k < 6; k++) hm = FILL - tan * innerR(hm) * ca;
+    hm = Math.min(TOP - 0.5, Math.max(FLOOR + 0.2, hm));
+    const r = innerR(hm), o = (i + 1) * 3;
+    surfPos[o] = mm(r * ca); surfPos[o + 1] = mm(hm); surfPos[o + 2] = mm(r * sa);
+  }
+  surfGeo.attributes.position.needsUpdate = true;
+  surfGeo.computeVertexNormals();
+  clipPlane.constant = mm(Sw);
+}
+
+/* Flasche dreht sich um ihre eigene Achse, die Neigung liegt eine Ebene
+   darueber - so bleibt der Spiegel von der Drehung unberuehrt. */
+const spin = new THREE.Group();
+spin.add(sauce, bottle, cap, spouts, labels);
+const model = new THREE.Group();
+model.position.y = mm(PIVOT);
+spin.position.y = -mm(PIVOT);
+surface.position.y = -mm(PIVOT);
+model.add(spin, surface);
+scene.add(model);
+
+const TILT_BASE = THREE.MathUtils.degToRad(30);
+const TILT_HOVER = THREE.MathUtils.degToRad(6);
+let tilt = TILT_BASE, tiltTarget = TILT_BASE;
+model.rotation.z = tilt;
+updateSurface(tilt);
+
+function resize() {
+  const w = host.clientWidth, h = host.clientHeight;
+  if (!w || !h) return;
+  renderer.setSize(w, h, false);
+  camera.aspect = w / h;
+  camera.updateProjectionMatrix();
+}
+addEventListener('resize', resize);
+resize();
+
+let autoSpin = true, dragging = false;
+const clock = new THREE.Clock();
+(function loop() {
+  requestAnimationFrame(loop);
+  const dt = Math.min(clock.getDelta(), 0.05);
+  if (autoSpin && !dragging) spin.rotation.y += dt * 0.55;
+  if (Math.abs(tiltTarget - tilt) > 0.0002) {
+    tilt += (tiltTarget - tilt) * Math.min(1, dt * 7);
+    model.rotation.z = tilt;
+    updateSurface(tilt);
+  }
+  renderer.render(scene, camera);
+})();
+
+/* ---------- Hover ---------- */
+/* Hover richtet die Flasche auf und haelt die Eigendrehung an, damit man
+   sie selbst in der Hand hat. Ziehen dreht um die Achse, hoch/runter kippt.
+   Beim Verlassen faehrt alles in die Ausgangslage zurueck.              */
+const TILT_MIN = THREE.MathUtils.degToRad(-8);
+const TILT_MAX = THREE.MathUtils.degToRad(62);
+const stage = document.getElementById('stage');
+let px = 0, py = 0;
+
+const grow = () => { host.style.transform = 'scale(1.08)'; tiltTarget = TILT_HOVER; autoSpin = false; };
+const shrink = () => {
+  host.style.transform = 'scale(1)';
+  tiltTarget = TILT_BASE;
+  autoSpin = true;
+  dragging = false;
+  host.classList.remove('dragging');
+};
+stage.addEventListener('mouseenter', grow);
+stage.addEventListener('mouseleave', shrink);
+
+stage.addEventListener('pointerdown', (e) => {
+  dragging = true; px = e.clientX; py = e.clientY;
+  host.classList.add('dragging');
+  stage.setPointerCapture(e.pointerId);
+});
+stage.addEventListener('pointermove', (e) => {
+  if (!dragging) return;
+  spin.rotation.y += (e.clientX - px) * 0.007;
+  tiltTarget = Math.min(TILT_MAX, Math.max(TILT_MIN, tiltTarget + (e.clientY - py) * 0.004));
+  px = e.clientX; py = e.clientY;
+});
+const endDrag = (e) => {
+  if (!dragging) return;
+  dragging = false;
+  host.classList.remove('dragging');
+  if (e && e.pointerId != null && stage.hasPointerCapture(e.pointerId)) stage.releasePointerCapture(e.pointerId);
+};
+stage.addEventListener('pointerup', endDrag);
+stage.addEventListener('pointercancel', endDrag);
+</script>
+</body>
+</html>
