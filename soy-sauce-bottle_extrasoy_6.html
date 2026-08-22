@@ -1,0 +1,688 @@
+<!DOCTYPE html>
+<!--
+================================================================================
+  SOJASAUCEN-FLASCHE  -  interaktives 3D-Modell
+================================================================================
+
+  Was das hier ist
+  ----------------
+  Eine einzelne HTML-Datei, die eine Sojasaucen-Flasche in 3D zeichnet. Alles
+  steckt in dieser Datei: Geometrie, Materialien, Licht und Bedienung. Nur
+  three.js wird von unpkg nachgeladen. Es gibt keine Modell-Datei und keine
+  Texturen - Flasche, Deckel und Etikett entstehen im Code.
+
+  Die Flasche dreht sich langsam von selbst. Faehrt die Maus ueber sie,
+  richtet sie sich auf und die Eigendrehung haelt an. Ziehen dreht sie nach
+  links und rechts und kippt sie nach vorn und hinten; der Fluessigkeits-
+  spiegel bleibt dabei waagerecht. Geht die Maus weg, faehrt alles in die
+  Ausgangslage zurueck. Nur die Flasche selbst reagiert, nicht die leere
+  Flaeche um sie herum.
+
+
+  So wird sie eingebaut
+  ---------------------
+  1. Diese Datei ins Repo legen:
+       extrasoy.github.io/webflow-assets/sojasauce-flasche-3d-modell-creme-v7-transparent.html
+
+  2. In Webflow ein Embed-Element einfuegen:
+
+       <iframe src="https://extrasoy.github.io/webflow-assets/sojasauce-flasche-3d-modell-creme-v7-transparent.html"
+               style="width:100%;aspect-ratio:1/1;border:0;display:block;background:transparent"
+               loading="lazy" title="Interaktives 3D-Modell einer Sojasaucen-Flasche"></iframe>
+
+     Das Format ist frei waehlbar - der Bildausschnitt rechnet sich selbst
+     aus, die Flasche fuellt den Rahmen auch hochkant.
+
+
+  Warum es zwei Zusatz-Snippets braucht
+  -------------------------------------
+  Die Flasche liegt in einem iframe. Ein iframe ist ein eigenes Dokument:
+  Maus-Ereignisse darin sind fuer die Webflow-Seite unsichtbar. Deshalb kann
+  ein Klick-Handler oder eine Interaction, die auf dem iframe-Element sitzt,
+  nie ausloesen. Die Flasche meldet solche Ereignisse stattdessen selbst per
+  Nachricht (postMessage) nach draussen. Die Webflow-Seite hoert darauf und
+  reagiert. Beide Snippets kommen einmalig in
+  Page Settings > Before </body>.
+
+
+  A) Scrollen ueber der Flasche
+  -----------------------------
+  Ohne das hier bleibt die Seite stehen, solange die Maus ueber dem iframe
+  ist - das Rad wird vom eingebetteten Dokument geschluckt.
+
+      <script>
+      window.addEventListener('message', function (e) {
+        if (e.data && e.data.type === 'bottleScroll') window.scrollBy(0, e.data.dy);
+      });
+      <\/script>
+
+
+  B) Klick auf die Flasche  ->  Webflow-Interaction (z.B. Overlay oeffnen)
+  -----------------------------------------------------------------------
+  Eine Webflow-Interaction laesst sich nicht direkt an eine Nachricht
+  haengen. Der Umweg: ein unsichtbares Element traegt die Interaction, und
+  der Klick auf die Flasche loest dieses Element per Script aus. Webflow
+  sieht einen ganz normalen Klick und startet die Interaction.
+
+      1. Beliebiges leeres Element in die Seite legen.
+      2. Interaction darauf setzen: Mouse click (tap) -> Open Overlay.
+      3. ID vergeben:  bottle-trigger
+      4. Unsichtbar machen - aber NICHT mit display:none, darauf laufen
+         Webflow-Interactions nicht. Stattdessen:
+             width 1px, height 1px, opacity 0, pointer-events none
+         Niemand klickt dieses Element je von Hand; das Script unten
+         uebernimmt das.
+
+      <script>
+      window.addEventListener('message', function (e) {
+        if (e.data && e.data.type === 'bottleClick')
+          document.getElementById('bottle-trigger').click();
+      });
+      <\/script>
+
+  Ziehen loest keinen Klick aus - nur wenn die Maus sich weniger als 6 px
+  bewegt hat. Soll der Klick stattdessen einfach eine Seite oeffnen: weiter
+  unten im Script  const LINK = '/deine-seite';  setzen.
+
+
+  Was sich wo aendern laesst
+  --------------------------
+  const BG            Farbe, die das Glas bricht. Sie ist NICHT sichtbar,
+                      sondern der Ton, den das brechende Glas als Umgebung
+                      liest. Steht die Flasche auf einem anderen Abschnitt,
+                      diesen Wert anpassen, sonst wirkt das Glas falsch.
+  cap_violet          Farbe des Deckels
+  soy_sauce           Farbe der Sauce
+  FILL                Fuellhoehe in mm
+  TILT_BASE / _HOVER  Neigung in Ruhe und beim Hover
+  FIT_W / FIT_H       Bildausschnitt - kleiner heisst groessere Flasche
+  LABEL_PATHS         Etikett, als SVG-Pfade uebernommen
+
+  Hintergrund:  transparent - die Seite dahinter scheint durch. Das iframe
+                braucht deshalb ebenfalls background:transparent.
+                Beleuchtet ist die Flasche fuer einen HELLEN Abschnitt.
+-->
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sojasauce Flasche 3D-Modell - interaktiv drehen und neigen</title>
+<meta name="description" content="Interaktives 3D-Modell einer Sojasaucen-Flasche: mit der Maus drehen und neigen, der Fuellstand der Sojasauce bleibt dabei waagerecht. Laeuft direkt im Browser, ohne Plugin.">
+<meta name="robots" content="index, follow">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Sojasauce Flasche 3D-Modell - interaktiv drehen und neigen">
+<meta property="og:description" content="Interaktives 3D-Modell einer Sojasaucen-Flasche mit realistischem Glas und waagerechtem Fuellstand.">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "3DModel",
+  "name": "Sojasauce Flasche 3D-Modell",
+  "description": "Interaktives 3D-Modell einer Sojasaucen-Flasche aus Glas. Die Flasche laesst sich mit der Maus drehen und neigen; der Fuellstand der Sojasauce bleibt dabei waagerecht.",
+  "inLanguage": "de",
+  "encodingFormat": "text/html",
+  "isAccessibleForFree": true,
+  "keywords": "Sojasauce, Sojasaucen-Flasche, 3D-Modell, interaktiv, WebGL, Glasflasche"
+}
+</script>
+<style>
+  /* nur fuer die Vorschau. Fuer den iframe-Einsatz auf transparent stellen. */
+  /* transparent - die Seite dahinter scheint durch. Das iframe braucht
+     ebenfalls background:transparent. */
+  html, body { margin: 0; height: 100%; background: transparent; overflow: hidden; }
+  #stage { height: 100%; display: grid; place-items: center; }
+  #tilt {
+    width: 92%; height: 92%;
+    transform-origin: 50% 50%;
+    transform: scale(1);
+    transition: transform .45s cubic-bezier(.34, 1.56, .64, 1);
+    cursor: grab;
+    touch-action: pan-y;
+  }
+  #tilt.dragging { cursor: grabbing; touch-action: none; }
+  canvas { display: block; width: 100%; height: 100%; }
+</style>
+<script type="importmap">
+{ "imports": { "three": "https://unpkg.com/three@0.161.0/build/three.module.js" } }
+</script>
+</head>
+<body>
+<h1 style="position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0">Sojasauce Flasche als interaktives 3D-Modell</h1>
+<div id="stage" role="img" aria-label="Sojasaucen-Flasche aus Glas, drehbar und neigbar"><div id="tilt"></div></div>
+
+<script type="module">
+import * as THREE from 'three';
+
+/* Der Hintergrund selbst bleibt transparent. Das Glas braucht aber einen
+   Ton, den es brechen kann - hier das Creme des Abschnitts. */
+const BG = '#FFF5E9';
+
+const LABEL_VB = [0,0,304,571];
+const LABEL_PATHS = [{"d":"M210.985 82.5803H205.797V71.2612L200.609 49.5664H205.797L208.391 63.8567L210.985 49.5664H216.173L210.985 71.2612V82.5803Z","fill":"#FFE6CA"},{"d":"M189.971 83.0548C185.963 83.0548 183.133 80.225 183.133 76.2162V55.9362C183.133 51.9274 185.963 49.0977 189.971 49.0977H191.386C195.395 49.0977 198.225 51.9274 198.225 55.9362V76.2162C198.225 80.225 195.395 83.0548 191.386 83.0548H189.971ZM191.386 77.8669C192.377 77.8669 193.037 77.2538 193.037 76.2162V55.9362C193.037 54.8987 192.377 54.2855 191.386 54.2855H189.971C188.981 54.2855 188.321 54.8987 188.321 55.9362V76.2162C188.321 77.2538 188.981 77.8669 189.971 77.8669H191.386Z","fill":"#FFE6CA"},{"d":"M171.089 83.0548C167.08 83.0548 164.25 80.225 164.25 76.2162V71.2641H169.438V76.2162C169.438 77.2538 170.098 77.8669 171.089 77.8669H172.503C173.494 77.8669 174.154 77.2538 174.154 76.2162V73.6222C174.154 72.3017 173.635 71.6886 172.409 70.3208L168.07 65.6046C165.618 62.9635 164.25 61.3128 164.25 58.0586V55.9362C164.25 51.9274 167.08 49.0977 171.089 49.0977H172.268C176.276 49.0977 179.106 51.9274 179.106 55.9362V60.4167H173.918V55.9362C173.918 54.8987 173.258 54.2855 172.268 54.2855H171.089C170.098 54.2855 169.438 54.8987 169.438 55.9362V58.0586C169.438 59.3791 170.004 60.0394 171.23 61.4071L175.522 66.0762C177.974 68.7173 179.342 70.368 179.342 73.6222V76.2162C179.342 80.225 176.512 83.0548 172.503 83.0548H171.089Z","fill":"#FFE6CA"},{"d":"M138.975 63.951C137.56 63.951 136.664 63.0549 136.664 61.64V51.8774C136.664 50.5568 137.654 49.5664 138.975 49.5664H142.371C143.691 49.5664 144.682 50.5568 144.682 51.8774V61.64C144.682 63.0549 143.786 63.951 142.371 63.951H138.975ZM140.154 52.8678C140.06 52.8678 139.965 52.915 139.965 53.0564V60.461C139.965 60.6025 140.06 60.6496 140.154 60.6496H141.192C141.286 60.6496 141.38 60.6025 141.38 60.461V53.0564C141.38 52.915 141.286 52.8678 141.192 52.8678H140.154ZM141.616 69.9407L140.579 68.4786L148.832 62.4418L149.917 63.9038L141.616 69.9407ZM148.172 82.5803C146.757 82.5803 145.861 81.6842 145.861 80.2693V70.5066C145.861 69.1861 146.851 68.1957 148.172 68.1957H151.567C152.888 68.1957 153.878 69.1861 153.878 70.5066V80.2693C153.878 81.6842 152.982 82.5803 151.567 82.5803H148.172ZM149.351 71.497C149.256 71.497 149.162 71.5442 149.162 71.6857V79.0902C149.162 79.2317 149.256 79.2789 149.351 79.2789H150.388C150.483 79.2789 150.577 79.2317 150.577 79.0902V71.6857C150.577 71.5442 150.483 71.497 150.388 71.497H149.351Z","fill":"#FFE6CA"},{"d":"M117.781 76.2162V55.9362C117.781 51.9274 120.611 49.0977 124.62 49.0977H126.035C130.044 49.0977 132.873 51.9274 132.873 55.9362V76.2162C132.873 80.225 130.044 83.0548 126.035 83.0548H124.62C120.611 83.0548 117.781 80.225 117.781 76.2162ZM122.969 76.2162C122.969 77.2538 123.629 77.8669 124.62 77.8669H126.035C127.025 77.8669 127.685 77.2538 127.685 76.2162V55.9362C127.685 54.8987 127.025 54.2855 126.035 54.2855H124.62C123.629 54.2855 122.969 54.8987 122.969 55.9362V76.2162Z","fill":"#FFE6CA"},{"d":"M98.8984 76.2162V55.9362C98.8984 51.9274 101.728 49.0977 105.737 49.0977H107.152C111.161 49.0977 113.99 51.9274 113.99 55.9362V76.2162C113.99 80.225 111.161 83.0548 107.152 83.0548H105.737C101.728 83.0548 98.8984 80.225 98.8984 76.2162ZM104.086 76.2162C104.086 77.2538 104.747 77.8669 105.737 77.8669H107.152C108.142 77.8669 108.803 77.2538 108.803 76.2162V55.9362C108.803 54.8987 108.142 54.2855 107.152 54.2855H105.737C104.747 54.2855 104.086 54.8987 104.086 55.9362V76.2162Z","fill":"#FFE6CA"},{"d":"M85.6953 53.3394C90.6474 53.2451 91.3548 49.5664 91.3548 49.5664H95.1278V82.5803H89.94V57.3482H85.6953V53.3394Z","fill":"#FFE6CA"},{"d":"M191.643 306.559C185.966 306.559 182.758 303.35 182.758 297.674V241.399C182.758 235.722 185.966 232.514 191.643 232.514H204.478C210.155 232.514 213.363 235.722 213.363 241.399V297.674C213.363 303.35 210.155 306.559 204.478 306.559H191.643ZM201.516 295.699C202.01 295.699 202.503 295.452 202.503 294.712V244.361C202.503 243.62 202.01 243.374 201.516 243.374H194.605C194.111 243.374 193.618 243.62 193.618 244.361V294.712C193.618 295.452 194.111 295.699 194.605 295.699H201.516ZM199.295 340.373L193.865 333.956L231.381 298.414L237.058 304.831L199.295 340.373ZM227.679 405.286C222.002 405.286 218.793 402.078 218.793 396.401V340.126C218.793 334.449 222.002 331.241 227.679 331.241H240.513C246.19 331.241 249.399 334.449 249.399 340.126V396.401C249.399 402.078 246.19 405.286 240.513 405.286H227.679ZM237.551 394.426C238.045 394.426 238.539 394.179 238.539 393.439V343.088C238.539 342.348 238.045 342.101 237.551 342.101H230.64C230.147 342.101 229.653 342.348 229.653 343.088V393.439C229.653 394.179 230.147 394.426 230.64 394.426H237.551Z","fill":"#FFE6CA"},{"d":"M136.44 405.286C122.865 405.286 115.461 397.882 115.461 384.307V253.493C115.461 239.918 122.865 232.514 136.44 232.514H148.781C162.356 232.514 169.761 239.918 169.761 253.493V384.307C169.761 397.882 162.356 405.286 148.781 405.286H136.44ZM148.781 386.775C150.262 386.775 151.25 386.034 151.25 384.307V253.493C151.25 251.765 150.262 251.025 148.781 251.025H136.44C134.96 251.025 133.972 251.765 133.972 253.493V384.307C133.972 386.034 134.96 386.775 136.44 386.775H148.781Z","fill":"#FFE6CA"},{"d":"M83.9494 405.286V262.132H67.9062V248.557C84.6899 248.31 88.8858 232.514 88.8858 232.514H102.461V405.286H83.9494Z","fill":"#FFE6CA"},{"d":"M164.855 144.957L139.358 144.957L132.946 171.486L149.159 186.445L149.159 170.602C148.471 170.11 147.93 169.496 147.537 168.759C147.144 168.022 146.948 167.212 146.948 166.328C146.948 164.903 147.452 163.686 148.46 162.678C149.468 161.67 150.683 161.167 152.106 161.169C153.529 161.171 154.744 161.675 155.752 162.681C156.761 163.687 157.265 164.903 157.265 166.328C157.265 167.212 157.068 168.022 156.675 168.759C156.282 169.496 155.742 170.11 155.054 170.602L155.054 186.445L171.266 171.486L164.855 144.957ZM175.688 130.219L172.74 139.062L131.473 139.062L128.525 130.219L175.688 130.219Z","fill":"#FFE6CA"},{"d":"M249.189 505.005H52.6797V442.125H249.189V505.005ZM87.6777 463.124V483.483H100.765V478.597H92.8828V475.602H99.8926V470.803H92.8828V467.981H100.619V463.124H87.6777ZM118.104 473.101L111.967 483.483H117.812L121.012 478.073L124.211 483.483H130.027L123.92 473.129L129.824 463.124H123.979L121.012 468.156L118.045 463.124H112.199L118.104 473.101ZM140.667 468.156H145.699V483.483H150.905V468.156H155.937V463.124H140.667V468.156ZM168.004 483.483H173.21V476.91H175.071L178.619 483.483H184.203L180.016 475.95C181.082 475.349 181.926 474.544 182.546 473.536C183.166 472.509 183.476 471.384 183.477 470.163C183.477 468.127 182.769 466.449 181.354 465.131C179.958 463.793 178.222 463.124 176.147 463.124H168.004V483.483ZM194.729 483.483H200.371L201.243 480.546H208.021L208.893 483.483H214.506L207.787 463.124H201.447L194.729 483.483ZM206.683 476.066H202.581L204.617 469.145L206.683 476.066ZM176.089 467.923C176.729 467.923 177.252 468.137 177.659 468.563C178.066 468.99 178.27 469.542 178.271 470.221C178.271 470.899 178.066 471.452 177.659 471.879C177.252 472.305 176.729 472.509 176.089 472.489H173.21V467.923H176.089Z","fill":"#FFE6CA"},{"d":"M249.191 508.934V512.864H52.6797V508.934H249.191Z","fill":"#FFE6CA"},{"d":"M58.5078 318.141H66.7578V340.141H58.5078Z","fill":"#FFE6CA"},{"d":"M51.6328 325.016H73.6328V333.266H51.6328Z","fill":"#FFE6CA"},{"d":"M21.24 136.26500000000001H104.75V137.845H21.24Z","fill":"#FFE6CA"},{"d":"M197.12 136.173H280.62V137.753H197.12Z","fill":"#FFE6CA"},{"d":"M21.24 142.589H104.75V144.16899999999998H21.24Z","fill":"#FFE6CA"},{"d":"M197.12 142.038H280.62V143.618H197.12Z","fill":"#FFE6CA"},{"d":"M21.234354999999997 9.796855H280.628445V11.368945H21.234354999999997Z","fill":"#FFE6CA"},{"d":"M21.234354999999997 558.455855H280.628445V560.0279449999999H21.234354999999997Z","fill":"#FFE6CA"},{"d":"M21.234354999999997 9.796855H22.806445V560.0279449999999H21.234354999999997Z","fill":"#FFE6CA"},{"d":"M279.056355 9.796855H280.628445V560.0279449999999H279.056355Z","fill":"#FFE6CA"},{"d":"M139.077 10.3715L259.43 0.845817L260.199 10.5667M279.864 259.027L302.844 549.361L279.882 551.179M177.323 559.296L44.2579 569.828L43.4194 559.234M22.0373 289.082L0.84375 21.3125L22.1483 19.6263","stroke":"#FFE6CA","width":1.57209}];
+
+const mm = (v) => v / 1000;
+const V2 = (r, h) => new THREE.Vector2(mm(r), mm(h));
+
+/* ---------- Silhouette ---------- */
+const outerCtl = [
+  [31.0, 4], [32.6, 13], [33.1, 22], [32.7, 31], [31.7, 40],
+  [30.2, 50], [27.9, 60], [24.8, 70], [21.2, 79], [17.9, 87],
+  [15.2, 93], [13.0, 98], [11.6, 103], [10.9, 107],
+  [10.7, 110], [10.8, 114], [10.9, 116.5], [11.0, 118.5],
+];
+const outer = new THREE.SplineCurve(outerCtl.map(([r, h]) => new THREE.Vector2(r, h)))
+  .getPoints(170).map((p) => [p.x, p.y]);
+
+const at = (h) => {
+  if (h <= outer[0][1]) return outer[0][0];
+  if (h >= outer[outer.length - 1][1]) return outer[outer.length - 1][0];
+  for (let i = 1; i < outer.length; i++) {
+    if (outer[i][1] >= h) {
+      const [r0, h0] = outer[i - 1], [r1, h1] = outer[i];
+      return r0 + (r1 - r0) * ((h - h0) / (h1 - h0));
+    }
+  }
+  return outer[outer.length - 1][0];
+};
+const wallAt = (h) => (h >= 100 ? 3.0 : h <= 20 ? 4.4 : 4.4 - ((h - 20) / 80) * 1.4);
+const innerR = (h) => Math.max(0.4, at(h) - wallAt(h));
+
+const FILL = 99;      // Fuellhoehe
+const FLOOR = 3.4;    // Innenboden
+
+/* ---------- Glas: eine geschlossene Aussenhaut ----------
+   Bewusst KEINE modellierte Innenwand. Jede zusaetzliche brechende Flaeche
+   traegt in three.js noch einmal den Hintergrund bei; vier gestapelte Waende
+   summieren sich zu einem hellen, flachen Schleier statt durchsichtig zu
+   wirken. Das Volumen der Wand uebernimmt stattdessen `thickness`.      */
+const glassProfile = [V2(0, 0)];
+for (const [r, h] of outer) glassProfile.push(V2(r, h));
+glassProfile.push(V2(11.5, 119.2), V2(11.55, 119.9), V2(11.2, 120.35), V2(10.6, 120.5), V2(0, 120.5));
+
+const glassMat = new THREE.MeshPhysicalMaterial({
+  name: 'glass',
+  color: 0xffffff,
+  metalness: 0,
+  roughness: 0.105,
+  transmission: 1,
+  ior: 1.52,
+  thickness: mm(3.2),
+  /* Absorption muss im Verhaeltnis zur Wandstaerke stehen. Mit einer
+     Weglaenge von mehreren Zentimetern passiert bei 3 mm Glas praktisch
+     nichts - deshalb liegt sie hier in derselben Groessenordnung.      */
+  attenuationColor: new THREE.Color(0x928f85),
+  attenuationDistance: mm(2.4),
+  specularIntensity: 0.62,
+  envMapIntensity: 0.5,
+  side: THREE.FrontSide,
+});
+const bottle = new THREE.Mesh(new THREE.LatheGeometry(glassProfile, 128), glassMat);
+bottle.name = 'bottle_glass';
+bottle.renderOrder = 3;
+
+/* ---------- Sauce ----------
+   Das Volumen fuellt den Innenraum bis weit ueber die Fuellhoehe hinaus und
+   wird von einer WAAGERECHTEN Ebene abgeschnitten. Dadurch bleibt der
+   Spiegel immer horizontal, egal wie stark die Flasche geneigt ist.     */
+const TOP = 116;
+const sauceProfile = [V2(0, FLOOR)];
+for (const [r, h] of outer) if (h > FLOOR && h <= TOP) sauceProfile.push(V2(innerR(h), h));
+sauceProfile.push(V2(innerR(TOP), TOP), V2(0, TOP));
+
+const clipPlane = new THREE.Plane(new THREE.Vector3(0, -1, 0), mm(FILL));
+
+const sauceMat = new THREE.MeshPhysicalMaterial({
+  name: 'soy_sauce',
+  color: 0x5c2810,
+  roughness: 0.32,
+  metalness: 0,
+  clearcoat: 0.25,
+  clearcoatRoughness: 0.35,
+  envMapIntensity: 0.7,
+  clippingPlanes: [clipPlane],
+});
+const sauce = new THREE.Mesh(new THREE.LatheGeometry(sauceProfile, 128), sauceMat);
+sauce.name = 'soy_sauce';
+
+/* ---------- Deckel ---------- */
+const capMat = new THREE.MeshStandardMaterial({
+  name: 'cap_violet', color: 0x453857, roughness: 0.32, metalness: 0, envMapIntensity: 1,
+});
+const capProfile = [
+  V2(0, 125.0), V2(9.2, 125.0), V2(10.8, 124.4), V2(11.6, 123.2),
+  V2(11.6, 113.2), V2(11.9, 112.4),
+  V2(15.2, 112.1), V2(15.3, 113.4), V2(15.2, 114.6),
+  V2(15.9, 117.6), V2(16.9, 121.2), V2(18.0, 124.5), V2(18.9, 127.0),
+];
+
+/* Die Kante und die Kuppe sind kein Drehkoerper mehr, sondern ein eigenes
+   Netz. An den beiden Ausgussstellen tritt die Flaeche nach AUSSEN aus der
+   Kappe heraus - eine Schnaupe, keine Delle. Obendrauf laeuft eine flache
+   Rinne, damit die Sauce gefuehrt wird.                                 */
+const crownProfile = [
+  [18.9, 127.0], [19.3, 128.2], [19.3, 128.8], [18.6, 129.3],
+  [15.6, 129.6], [8.0, 129.5], [0, 129.4],
+];
+const NOTCH_AZ = [0, Math.PI];
+const NOTCH_OUT = 3.4;                     // wie weit die Schnaupe vorsteht
+const NOTCH_DEEP = 1.1;                    // Rinne obenauf
+const NOTCH_ANG = 24, NOTCH_TIP = 13;      // Breite aussen / innen
+
+const capTop = [[19.3, 128.8], [18.6, 129.3], [15.6, 129.6], [8.0, 129.5], [0, 129.4]];
+function capTopH(r) {
+  if (r >= capTop[0][0]) return capTop[0][1];
+  for (let i = 1; i < capTop.length; i++) {
+    const [r0, h0] = capTop[i - 1], [r1, h1] = capTop[i];
+    if (r >= r1) return h0 + (h1 - h0) * ((r - r0) / (r1 - r0));
+  }
+  return capTop[capTop.length - 1][1];
+}
+/* Wie weit die Schnaupe an diesem Radius greift. Kein weiches Auslaufen -
+   von r = 13.4 an baut sie schnell auf und steht dann voll an, damit sie
+   kantig und dick wirkt statt spitz zuzulaufen.                        */
+const notchW = (r) => THREE.MathUtils.clamp((r - 13.4) / 3.4, 0, 1);
+/* Querschnitt: flache Mitte, steile Flanken - ein Kasten, kein Keil. */
+const notchCut = (x) => THREE.MathUtils.clamp((1 - x) / 0.42, 0, 1);
+
+function capCrown() {
+  const M = 44, K = 180, seg = [], pts = [];
+  let total = 0;
+  for (let i = 1; i < crownProfile.length; i++) {
+    const [r0, h0] = crownProfile[i - 1], [r1, h1] = crownProfile[i];
+    const L = Math.hypot(r1 - r0, h1 - h0);
+    seg.push(L); total += L;
+  }
+  for (let i = 0; i <= M; i++) {
+    let d = (i / M) * total, k = 0;
+    while (k < seg.length - 1 && d > seg[k]) { d -= seg[k]; k++; }
+    const [r0, h0] = crownProfile[k], [r1, h1] = crownProfile[k + 1];
+    const f = seg[k] ? Math.min(1, d / seg[k]) : 0;
+    pts.push([r0 + (r1 - r0) * f, h0 + (h1 - h0) * f]);
+  }
+  const pos = [], idx = [];
+  for (let j = 0; j <= K; j++) {
+    const a = (j / K) * Math.PI * 2;
+    for (let i = 0; i <= M; i++) {
+      const [r, hh] = pts[i];
+      const w = notchW(r);
+      /* Am Uebergang zum Drehkoerper bleibt die Flaeche stehen, sonst
+         klafft dort eine Naht. */
+      const fade = THREE.MathUtils.clamp((hh - 127.0) / 1.2, 0, 1);
+      const half = THREE.MathUtils.degToRad(NOTCH_TIP + (NOTCH_ANG - NOTCH_TIP) * w);
+      let k = 0;
+      for (const na of NOTCH_AZ) {
+        const da = Math.abs(((a - na + Math.PI * 3) % (Math.PI * 2)) - Math.PI);
+        if (da < half) k = Math.max(k, w * fade * notchCut(da / half));
+      }
+      const rr = r + NOTCH_OUT * k;      // Schnaupe tritt heraus
+      const hhh = hh - NOTCH_DEEP * k;   // Rinne obenauf
+      pos.push(Math.cos(a) * mm(rr), mm(hhh), -Math.sin(a) * mm(rr));
+    }
+  }
+  for (let j = 0; j < K; j++) {
+    for (let i = 0; i < M; i++) {
+      const A = j * (M + 1) + i, B = A + M + 1;
+      idx.push(A, B, A + 1, A + 1, B, B + 1);
+    }
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.setIndex(idx);
+  g.computeVertexNormals();
+  return g;
+}
+
+const cap = new THREE.Group();
+cap.name = 'cap';
+cap.rotation.y = Math.atan2(1, 1.25);   // Kerben auf der Schauseite
+cap.add(new THREE.Mesh(new THREE.LatheGeometry(capProfile, 96), capMat));
+const crown = new THREE.Mesh(capCrown(), capMat);
+crown.name = 'cap_crown';
+cap.add(crown);
+
+/* Die Ausgussloecher sitzen am inneren Ende der Kerben. */
+const boreMat = new THREE.MeshStandardMaterial({
+  name: 'spout_bore', color: 0x120e1c, roughness: 0.45,
+});
+const spouts = new THREE.Group();
+spouts.rotation.y = cap.rotation.y;
+NOTCH_AZ.forEach((na) => {
+  const HR = 15.0, kk = notchW(HR);
+  const hole = new THREE.Mesh(new THREE.CircleGeometry(mm(1.05), 20), boreMat);
+  hole.rotation.x = -Math.PI / 2;
+  hole.position.set(
+    Math.cos(na) * mm(HR + NOTCH_OUT * kk),
+    mm(capTopH(HR) - NOTCH_DEEP * kk + 0.05),
+    -Math.sin(na) * mm(HR + NOTCH_OUT * kk));
+  hole.renderOrder = 4;
+  spouts.add(hole);
+});
+
+/* ---------- Etikett ---------- */
+function labelTexture(renderer) {
+  const [vx, vy, vw, vh] = LABEL_VB;
+  const H = 1600, s = H / vh, W = Math.round(vw * s);
+  const c = document.createElement('canvas');
+  c.width = W; c.height = H;
+  const g = c.getContext('2d');
+  g.setTransform(s, 0, 0, s, -vx * s, -vy * s);
+  for (const p of LABEL_PATHS) {
+    const path = new Path2D(p.d);
+    if (p.stroke) {
+      g.strokeStyle = p.stroke;
+      g.lineWidth = p.width || 1;
+      g.stroke(path);
+    } else {
+      g.fillStyle = p.fill;
+      g.fill(path);
+    }
+  }
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
+  return tex;
+}
+
+function decalGeometry(h0, h1, halfWidth, lift = 1.1, segX = 72, segY = 90) {
+  const pos = [], uvs = [], idx = [];
+  for (let j = 0; j <= segY; j++) {
+    const t = j / segY, h = h0 + (h1 - h0) * t, r = at(h) + lift, half = halfWidth / r;
+    for (let i = 0; i <= segX; i++) {
+      const u = i / segX, a = -half + 2 * half * u;
+      pos.push(Math.sin(a) * mm(r), mm(h), Math.cos(a) * mm(r));
+      uvs.push(u, t);
+    }
+  }
+  const row = segX + 1;
+  for (let j = 0; j < segY; j++) for (let i = 0; i < segX; i++) {
+    const v00 = j * row + i, v10 = v00 + 1, v01 = v00 + row, v11 = v01 + 1;
+    idx.push(v00, v10, v11, v00, v11, v01);
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  geo.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+  geo.setIndex(idx);
+  geo.computeVertexNormals();
+  return geo;
+}
+
+/* ---------- Szene ---------- */
+const host = document.getElementById('tilt');
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, premultipliedAlpha: false });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 2.0;
+/* Alpha 0: die Seite scheint durch. Der Farbwert bleibt gesetzt, weil das
+   brechende Glas ihn als Hintergrund liest. */
+renderer.setClearColor(new THREE.Color(BG), 0);
+renderer.localClippingEnabled = true;
+host.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(26, 1, 0.01, 10);
+camera.position.set(0, 0.066, 0.40);
+camera.lookAt(0, 0.064, 0);
+
+/* dunkles Studio: kompakte Lichter, dunkler Grund. Damit bleibt das, was
+   man durch das Glas sieht, dunkel wie die Seite dahinter.            */
+function studio() {
+  const W = 1024, H = 512;
+  const c = document.createElement('canvas');
+  c.width = W; c.height = H;
+  const x = c.getContext('2d');
+  const g = x.createLinearGradient(0, 0, 0, H);
+  g.addColorStop(0, '#2e2e2b'); g.addColorStop(0.45, '#1d1d1b');
+  g.addColorStop(0.55, '#161615'); g.addColorStop(1, '#0b0b0a');
+  x.fillStyle = g; x.fillRect(0, 0, W, H);
+  const soft = (cx, cy, rx, ry, peak, mid) => {
+    const r = x.createRadialGradient(0, 0, 0, 0, 0, 1);
+    r.addColorStop(0, 'rgba(255,255,255,' + peak + ')');
+    r.addColorStop(mid, 'rgba(255,255,255,' + peak * 0.28 + ')');
+    r.addColorStop(1, 'rgba(255,255,255,0)');
+    const blob = (p) => { x.save(); x.translate(p, cy); x.scale(rx, ry); x.fillStyle = r;
+      x.beginPath(); x.arc(0, 0, 1, 0, Math.PI * 2); x.fill(); x.restore(); };
+    blob(cx); if (cx - rx < 0) blob(cx + W); if (cx + rx > W) blob(cx - W);
+  };
+  x.globalCompositeOperation = 'lighter';
+  soft(W * 0.26, H * 0.20, W * 0.20, H * 0.24, 0.40, 0.45);
+  soft(W * 0.74, H * 0.30, W * 0.15, H * 0.18, 0.24, 0.45);
+  soft(W * 0.02, H * 0.44, W * 0.10, H * 0.34, 0.28, 0.4);
+  soft(W * 0.54, H * 0.44, W * 0.10, H * 0.34, 0.26, 0.4);
+  x.globalCompositeOperation = 'source-over';
+  const tex = new THREE.CanvasTexture(c);
+  tex.mapping = THREE.EquirectangularReflectionMapping;
+  tex.colorSpace = THREE.SRGBColorSpace;
+  const pmrem = new THREE.PMREMGenerator(renderer);
+  scene.environment = pmrem.fromEquirectangular(tex).texture;
+  pmrem.dispose(); tex.dispose();
+}
+studio();
+
+const key = new THREE.DirectionalLight(0xfff4e6, 1.0);
+key.position.set(-0.22, 0.36, 0.28);
+const rim = new THREE.DirectionalLight(0xdfe8ff, 1.05);
+rim.position.set(0.28, 0.12, -0.34);
+scene.add(key, rim, new THREE.AmbientLight(0xffffff, 0.12));
+
+const labelTex = labelTexture(renderer);
+const labelMat = new THREE.MeshStandardMaterial({
+  name: 'label_cream',
+  color: 0xffffff,
+  map: labelTex,
+  emissiveMap: labelTex,
+  emissive: new THREE.Color(0xffffff),
+  emissiveIntensity: 0.3,
+  transparent: true,
+  roughness: 0.82,
+  metalness: 0,
+  envMapIntensity: 0.55,
+});
+const LABEL_BOTTOM = 24, LABEL_TOP = 75;
+const LABEL_W = (LABEL_TOP - LABEL_BOTTOM) * (LABEL_VB[2] / LABEL_VB[3]);
+const labels = new THREE.Group();
+labels.rotation.y = Math.atan2(1, 1.25);
+['front', 'back'].forEach((side, i) => {
+  const m = new THREE.Mesh(decalGeometry(LABEL_BOTTOM, LABEL_TOP, LABEL_W / 2), labelMat);
+  m.name = 'label_' + side;
+  m.rotation.y = i * Math.PI;
+  m.renderOrder = 4;
+  labels.add(m);
+});
+
+/* ---------- Spiegel der Fluessigkeit ----------
+   Der Schnitt einer waagerechten Ebene durch die geneigte Flasche ist eine
+   Ellipse, deren Rand der Flaschenkontur folgt. Fuer jeden Winkel wird die
+   Hoehe gesucht, an der die Innenwand die Ebene trifft.                  */
+const SEG = 160;
+const surfGeo = new THREE.BufferGeometry();
+const surfPos = new Float32Array((SEG + 2) * 3);
+surfGeo.setAttribute('position', new THREE.BufferAttribute(surfPos, 3));
+const surfIdx = [];
+for (let i = 0; i < SEG; i++) surfIdx.push(0, i + 1, i + 2);
+surfGeo.setIndex(surfIdx);
+
+const surfMat = new THREE.MeshPhysicalMaterial({
+  name: 'sauce_surface',
+  color: 0x5c2810,
+  roughness: 0.18,
+  metalness: 0,
+  clearcoat: 0.5,
+  clearcoatRoughness: 0.14,
+  envMapIntensity: 0.5,
+  side: THREE.DoubleSide,
+});
+const surface = new THREE.Mesh(surfGeo, surfMat);
+
+/* Die Flasche kippt um ihre Mitte, nicht um den Boden - sonst wandert sie
+   beim Neigen aus dem Bild. */
+const PIVOT = 64;
+
+function updateSurface(T) {
+  const tan = Math.tan(T);
+  const Sw = PIVOT + Math.cos(T) * (FILL - PIVOT);   // Spiegelhoehe in Weltkoordinaten (mm)
+  surfPos[0] = 0; surfPos[1] = mm(FILL); surfPos[2] = 0;
+  for (let i = 0; i <= SEG; i++) {
+    const a = (i / SEG) * Math.PI * 2, ca = Math.cos(a), sa = Math.sin(a);
+    let hm = FILL;
+    for (let k = 0; k < 6; k++) hm = FILL - tan * innerR(hm) * ca;
+    hm = Math.min(TOP - 0.5, Math.max(FLOOR + 0.2, hm));
+    const r = innerR(hm), o = (i + 1) * 3;
+    surfPos[o] = mm(r * ca); surfPos[o + 1] = mm(hm); surfPos[o + 2] = mm(r * sa);
+  }
+  surfGeo.attributes.position.needsUpdate = true;
+  surfGeo.computeVertexNormals();
+  clipPlane.constant = mm(Sw);
+}
+
+/* Flasche dreht sich um ihre eigene Achse, die Neigung liegt eine Ebene
+   darueber - so bleibt der Spiegel von der Drehung unberuehrt. */
+const spin = new THREE.Group();
+spin.add(sauce, bottle, cap, spouts, labels);
+const model = new THREE.Group();
+model.position.y = mm(PIVOT);
+spin.position.y = -mm(PIVOT);
+surface.position.y = -mm(PIVOT);
+model.add(spin, surface);
+scene.add(model);
+
+const TILT_BASE = THREE.MathUtils.degToRad(30);
+const TILT_HOVER = THREE.MathUtils.degToRad(6);
+let tilt = TILT_BASE, tiltTarget = TILT_BASE;
+model.rotation.z = tilt;
+updateSurface(tilt);
+
+/* Bildausschnitt: die Flasche soll den Rahmen fuellen, egal welches Format
+   das iframe hat. FIT ist der Platz, den sie im gekippten Zustand und beim
+   Vergroessern im Hover braucht - der Blickwinkel wird daraus berechnet,
+   statt einen festen Wert zu nehmen und Rand zu verschenken.           */
+const FIT_W = 0.150, FIT_H = 0.162, DIST = camera.position.z;
+
+function resize() {
+  const w = host.clientWidth, h = host.clientHeight;
+  if (!w || !h) return;
+  renderer.setSize(w, h, false);
+  const aspect = w / h;
+  camera.aspect = aspect;
+  const tanHalf = Math.max(FIT_W / (2 * DIST * aspect), FIT_H / (2 * DIST));
+  camera.fov = THREE.MathUtils.radToDeg(2 * Math.atan(tanHalf));
+  camera.updateProjectionMatrix();
+}
+addEventListener('resize', resize);
+resize();
+
+let autoSpin = true, dragging = false;
+const clock = new THREE.Clock();
+(function loop() {
+  requestAnimationFrame(loop);
+  const dt = Math.min(clock.getDelta(), 0.05);
+  if (autoSpin && !dragging) spin.rotation.y += dt * 0.55;
+  if (Math.abs(tiltTarget - tilt) > 0.0002) {
+    tilt += (tiltTarget - tilt) * Math.min(1, dt * 7);
+    model.rotation.z = tilt;
+    updateSurface(tilt);
+  }
+  renderer.render(scene, camera);
+})();
+
+/* ---------- Hover ---------- */
+/* Hover richtet die Flasche auf und haelt die Eigendrehung an, damit man
+   sie selbst in der Hand hat. Ziehen dreht um die Achse, hoch/runter kippt.
+   Beim Verlassen faehrt alles in die Ausgangslage zurueck.              */
+const TILT_MIN = THREE.MathUtils.degToRad(-8);
+const TILT_MAX = THREE.MathUtils.degToRad(62);
+const stage = document.getElementById('stage');
+let px = 0, py = 0;
+
+const grow = () => { host.style.transform = 'scale(1.08)'; tiltTarget = TILT_HOVER; autoSpin = false; };
+const shrink = () => {
+  host.style.transform = 'scale(1)';
+  tiltTarget = TILT_BASE;
+  autoSpin = true;
+  dragging = false;
+  host.classList.remove('dragging');
+  hovering = false;
+};
+/* Nur die Flasche selbst reagiert, nicht die leere Flaeche um sie herum:
+   pro Mausbewegung ein Strahl aus der Kamera auf das Modell.           */
+const ray = new THREE.Raycaster();
+const ndc = new THREE.Vector2();
+let hovering = false;
+
+function overBottle(e) {
+  const r = renderer.domElement.getBoundingClientRect();
+  if (!r.width || !r.height) return false;
+  ndc.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+  ray.setFromCamera(ndc, camera);
+  return ray.intersectObject(model, true).length > 0;
+}
+
+stage.addEventListener('mouseleave', () => { hovering = false; shrink(); });
+
+/* Im iframe verschluckt das Dokument das Mausrad. Wir geben es an die
+   umgebende Seite weiter, damit man ueber der Flasche weiterscrollen kann.
+   Der Snippet dafuer steht im Kopf dieser Datei.                        */
+addEventListener('wheel', (e) => {
+  if (parent !== window) parent.postMessage({ type: 'bottleScroll', dy: e.deltaY, dx: e.deltaX }, '*');
+}, { passive: true });
+
+/* Klick auf die Flasche. Ein Klick-Handler ausserhalb des iframes kann
+   nicht greifen - die Maus liegt ja im eingebetteten Dokument. Deshalb
+   meldet die Flasche den Klick selbst: entweder ueber LINK direkt, oder
+   per Nachricht an die umgebende Seite (siehe Kopf der Datei).         */
+const LINK = '';        // z.B. '/produkte/sojasauce'
+const DEBUG = true;     // meldet jeden Klick in der Browser-Konsole
+let downX = 0, downY = 0, downT = 0, moved = 0;
+
+function notifyClick() {
+  const msg = { type: 'bottleClick' };
+  try { if (parent !== window) parent.postMessage(msg, '*'); } catch (err) {}
+  try { if (top !== window && top !== parent) top.postMessage(msg, '*'); } catch (err) {}
+  if (DEBUG) console.log('[Flasche] bottleClick gesendet');
+  if (LINK) top.location.href = LINK;
+}
+
+/* Sowohl pointerup als auch click - je nach Browser und Pointer-Capture
+   kommt mal das eine, mal das andere zuverlaessig an. Ein Merker verhindert,
+   dass beide zusammen doppelt melden. */
+let clickSent = 0;
+function maybeClick(e) {
+  if (!downT || moved > 6) return;
+  if (Date.now() - clickSent < 250) return;
+  if (!overBottle(e)) return;
+  clickSent = Date.now();
+  notifyClick();
+}
+stage.addEventListener('pointerup', maybeClick);
+stage.addEventListener('click', maybeClick);
+
+stage.addEventListener('pointerdown', (e) => {
+  if (!overBottle(e)) return;
+  downX = e.clientX; downY = e.clientY; downT = Date.now(); moved = 0;
+  dragging = true; px = e.clientX; py = e.clientY;
+  host.classList.add('dragging');
+  stage.setPointerCapture(e.pointerId);
+});
+stage.addEventListener('pointermove', (e) => {
+  if (!dragging) {
+    const over = overBottle(e);
+    stage.style.cursor = over ? 'grab' : 'default';
+    if (over && !hovering) { hovering = true; grow(); }
+    else if (!over && hovering) { hovering = false; shrink(); }
+    return;
+  }
+  moved = Math.max(moved, Math.hypot(e.clientX - downX, e.clientY - downY));
+  spin.rotation.y += (e.clientX - px) * 0.007;
+  tiltTarget = Math.min(TILT_MAX, Math.max(TILT_MIN, tiltTarget + (e.clientY - py) * 0.004));
+  px = e.clientX; py = e.clientY;
+});
+const endDrag = (e) => {
+  if (!dragging) return;
+  dragging = false;
+  host.classList.remove('dragging');
+  if (e && e.pointerId != null && stage.hasPointerCapture(e.pointerId)) stage.releasePointerCapture(e.pointerId);
+};
+stage.addEventListener('pointerup', endDrag);
+stage.addEventListener('pointercancel', endDrag);
+</script>
+</body>
+</html>
